@@ -5,21 +5,23 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  Button,
 } from "react-native";
 import { WebView } from "react-native-webview";
 import Constants from "expo-constants";
 import { Camera } from "expo-camera";
 import * as LocalAuthentication from "expo-local-authentication";
 import * as SecureStore from "expo-secure-store";
-import NfcManager, { NfcEvents, Ndef } from "react-native-nfc-manager";
+import NfcManager, { Ndef } from "react-native-nfc-manager";
 
 export default function App() {
   const [authenticated, setAuthenticated] = useState(false);
-  const [webViewLoaded, setWebViewLoaded] = useState(false);
   const webviewRef = useRef(null);
 
   useEffect(() => {
+    // Start NFC Manager
     NfcManager.start();
+
     // Request camera permissions
     (async () => {
       const { status } = await Camera.requestCameraPermissionsAsync();
@@ -31,11 +33,30 @@ export default function App() {
       }
     })();
 
+    // NFC Support and Availability Check
+    (async () => {
+      const isSupported = await NfcManager.isSupported();
+      if (!isSupported) {
+        Alert.alert("NFC Not Supported", "This device does not support NFC.");
+        return;
+      }
+
+      if (Platform.OS === "android") {
+        const isEnabled = await NfcManager.isEnabled();
+        if (!isEnabled) {
+          Alert.alert(
+            "NFC Disabled",
+            "Please enable NFC in your device settings."
+          );
+          return;
+        }
+      }
+    })();
+
     // Check for stored credentials and handle biometric authentication
     checkCredentials();
 
     return () => {
-      NfcManager.setEventListener(NfcEvents.DiscoverTag, null);
       NfcManager.unregisterTagEvent().catch(() => 0);
     };
   }, []);
@@ -83,7 +104,6 @@ export default function App() {
       window.addEventListener('load', function() {
         if (window.location.pathname === '/login') {
           window.ReactNativeWebView.postMessage('LOGIN_PAGE');
-          
           document.querySelector('form').addEventListener('submit', function() {
             const email = document.querySelector('input[name="email"]').value;
             const password = document.querySelector('input[name="password"]').value;
@@ -117,86 +137,85 @@ export default function App() {
       const [_, email, password] = message.split("||");
       await SecureStore.setItemAsync("email", email);
       await SecureStore.setItemAsync("password", password);
-    }  else if (message === 'PAGE_LOADED') {
-      setWebViewLoaded(true);
     }
   };
 
   // NFC Functionality
   useEffect(() => {
-    if (authenticated && webViewLoaded) {
-      // Set up NFC tag discovery listener
-      NfcManager.setEventListener(NfcEvents.DiscoverTag, handleTagDiscovered);
- 
-      // Start NFC scanning
-      if (Platform.OS === 'android') {
-        NfcManager.registerTagEvent().catch(error => {
-          console.warn('NFC Error', error);
-        });
+    if (authenticated) {
+      if (Platform.OS === "android") {
+        // For Android, start scanning when the component mounts
+        NfcManager.registerTagEvent(handleTagDiscovered)
+          .then(() => {
+            console.log("NFC Tag event registered on Android");
+          })
+          .catch((error) => {
+            console.warn("NFC Register Tag Event Error", error);
+          });
       }
     }
- 
+
     return () => {
-      NfcManager.setEventListener(NfcEvents.DiscoverTag, null);
       NfcManager.unregisterTagEvent().catch(() => 0);
     };
-  }, [authenticated, webViewLoaded]);
- 
+  }, [authenticated]);
+
   const handleTagDiscovered = (tag) => {
-    console.log('Tag Discovered', tag);
- 
+    console.log("Tag Discovered", tag);
+    Alert.alert("Tag Detected", "An NFC tag has been detected.");
+
     // Read the button ID from the NFC tag
     const buttonId = getButtonIdFromTag(tag);
- 
+
     if (buttonId && webviewRef.current) {
       // Generate JavaScript code to inject into the WebView
       const jsCode = `document.getElementById('${buttonId}').click(); true;`;
       webviewRef.current.injectJavaScript(jsCode);
     } else {
-      Alert.alert('Unknown Tag', 'This NFC tag is not recognized.');
+      Alert.alert("Unknown Tag", "This NFC tag is not recognized.");
     }
- 
-    // Stop NFC scanning after a tag is detected (Android)
-    if (Platform.OS === 'android') {
-      NfcManager.unregisterTagEvent().catch(() => 0);
-      // Restart NFC scanning after a short delay
-      setTimeout(() => {
-        NfcManager.registerTagEvent().catch(error => {
-          console.warn('NFC Error', error);
-        });
-      }, 1000);
-    }
+
+    // Stop NFC scanning after a tag is detected
+    NfcManager.unregisterTagEvent().catch(() => 0);
   };
- 
+
   const getButtonIdFromTag = (tag) => {
     // Extract NDEF message from the tag
     const ndefRecords = tag.ndefMessage;
- 
+
     if (ndefRecords && ndefRecords.length > 0) {
       // Assume the first record contains the button ID
       const record = ndefRecords[0];
- 
+
       // Decode the payload
       const payload = Ndef.text.decodePayload(record.payload);
- 
+
       // Trim and normalize the button ID
       const buttonId = payload.trim();
- 
+
       // Validate the button ID against your list
-      const validButtonIds = ['nykaa_cosmetics', 'kaybeauty', 'mac', 'ct'];
+      const validButtonIds = ["nykaa_cosmetics", "kaybeauty", "mac", "ct"];
       if (validButtonIds.includes(buttonId)) {
         return buttonId;
       }
     }
- 
+
     return null;
   };
- 
+
   // For iOS, function to start NFC scanning
-  const startNfcScan = () => {
-    NfcManager.registerTagEvent().catch(error => {
-      console.warn('NFC Error', error);
-    });
+  const startNfcScan = async () => {
+    try {
+      await NfcManager.registerTagEvent(
+        handleTagDiscovered,
+        "Hold your iPhone near an NFC tag",
+        true
+      );
+      // No need for additional alert; iOS shows its own NFC scanning prompt
+    } catch (error) {
+      console.warn("NFC Error", error);
+      Alert.alert("NFC Error", "Could not start NFC scanning.");
+    }
   };
 
   return (
@@ -217,14 +236,6 @@ export default function App() {
               <ActivityIndicator size="large" color="#E53475" />
             )}
             {...(Platform.OS === "ios" && { allowsInlineMediaPlayback: true })}
-            onError={(syntheticEvent) => {
-              const { nativeEvent } = syntheticEvent;
-              console.warn('WebView error: ', nativeEvent);
-            }}
-            onHttpError={(syntheticEvent) => {
-              const { nativeEvent } = syntheticEvent;
-              console.warn('WebView HTTP error: ', nativeEvent);
-            }}
           />
           {Platform.OS === "ios" && (
             <Button title="Scan NFC Tag" onPress={startNfcScan} />

@@ -22,7 +22,7 @@
         "NSFaceIDUsageDescription": "App uses Face ID for authentication."
       },
       "bundleIdentifier": "com.newt0n.NykaaSQVision",
-      "buildNumber":"09"
+      "buildNumber":"12"
     },
     "android": {
       "adaptiveIcon": {
