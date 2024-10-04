@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "NykaaSQVision",
+    "name": "SQVision",
     "slug": "NykaaSQVision",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -12,19 +12,25 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "config": {
         "usesNonExemptEncryption": false
       },
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app requires access to your camera to capture photos for AI-based analysis used exclusively in your business operations. Your data will be securely processed and not shared outside of business purposes.",
+        "NFCReaderUsageDescription": "App requires NFC access to read shelf tags.",
+        "NSFaceIDUsageDescription": "App uses Face ID for authentication."
+      },
       "bundleIdentifier": "com.newt0n.NykaaSQVision",
-      "buildNumber":"02"
+      "buildNumber":"09"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.newt0n.NykaaSQVision"
+      "package": "com.newt0n.NykaaSQVision",
+      "versionCode": 7
     },
     "web": {
       "favicon": "./assets/favicon.png"

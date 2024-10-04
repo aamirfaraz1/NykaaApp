@@ -11,9 +11,12 @@
   "dependencies": {
     "expo": "~51.0.28",
     "expo-camera": "~15.0.14",
+    "expo-local-authentication": "^14.0.1",
+    "expo-secure-store": "^13.0.2",
     "expo-status-bar": "~1.12.1",
     "react": "18.2.0",
     "react-native": "0.74.5",
+    "react-native-nfc-manager": "^3.16.0",
     "react-native-webview": "13.8.6"
   },
   "devDependencies": {
